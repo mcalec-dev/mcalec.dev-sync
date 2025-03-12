@@ -25,38 +25,37 @@ jobs:
 
       - name: Debug repository structure
         run: |
-          echo "Listing the content of the GitLab repository:"
+          echo "Listing the root content of the GitLab repository:"
           ls -la temp-gitlab-repo/
+          
+          # Find any public directories in the repository structure
           echo "Searching for 'public' directory in any location:"
-          find temp-gitlab-repo -type d -name "public" | xargs -I{} echo "Found public dir: {}"
+          find temp-gitlab-repo -type d -name "public" | xargs -I{} ls -la "{}"
 
       - name: Copy folder contents to root
         run: |
-          # Check if public directory exists
-          if [ -d "temp-gitlab-repo/public" ]; then
-            echo "Found public directory"
-            SOURCE_DIR="temp-gitlab-repo/public"
-          else
-            echo "Public directory not found, using repository root"
-            SOURCE_DIR="temp-gitlab-repo"
-          fi
-          
           # Remove everything except .git folder and GitHub workflow files
           find . -mindepth 1 -not -path "./.git*" -delete
           
-          # Check if the source directory has any files
-          if [ "$(ls -A ${SOURCE_DIR})" ]; then
-            echo "Copying contents from ${SOURCE_DIR}"
-            cp -R ${SOURCE_DIR}/* .
-          else
-            echo "Source directory is empty, nothing to copy"
-            # Create a placeholder file to show the sync ran
-            echo "Synced from GitLab at $(date)" > README.md
-          fi
+          # Look for public directories at any level in the repo structure
+          PUBLIC_DIRS=$(find temp-gitlab-repo -type d -name "public")
           
-          # Add more detailed debugging
-          echo "Contents of source directory:"
-          ls -la ${SOURCE_DIR}
+          if [ -n "$PUBLIC_DIRS" ]; then
+            # Use the first public directory found
+            PUBLIC_DIR=$(echo "$PUBLIC_DIRS" | head -n 1)
+            echo "Found public directory at: $PUBLIC_DIR"
+            
+            if [ -n "$(ls -A $PUBLIC_DIR)" ]; then
+              echo "Copying files from $PUBLIC_DIR"
+              cp -R $PUBLIC_DIR/* .
+            else
+              echo "Public directory is empty, nothing to copy"
+              echo "Synced from GitLab at $(date)" > README.md
+            fi
+          else
+            echo "No public directory found, copying from repository root"
+            cp -R temp-gitlab-repo/* .
+          fi
           
           # Clean up the temporary GitLab repository
           rm -rf temp-gitlab-repo

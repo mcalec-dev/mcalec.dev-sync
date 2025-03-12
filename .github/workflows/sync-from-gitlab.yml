@@ -1,5 +1,9 @@
 name: Sync from GitLab
 
+# Explicitly define permissions for GITHUB_TOKEN
+permissions:
+  contents: write
+
 on:
   # Run this workflow every day at midnight
   schedule:
@@ -113,9 +117,26 @@ jobs:
           else
             git commit -m "Sync files from GitLab repository"
             
-            # Use PAT instead of default GITHUB_TOKEN for push
-            # This requires setting up a secret called PAT in your repository
-            git remote set-url origin https://${{ github.actor }}:${{ secrets.PAT }}@github.com/${{ github.repository }}.git
-            git push
+            # Try different push methods if one fails
+            echo "Attempting push with default token..."
+            if ! git push; then
+              echo "Default push failed, trying alternative method..."
+              
+              # Alternative 1: Use GITHUB_TOKEN explicitly
+              git remote set-url origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+              if ! git push; then
+                echo "Alternative 1 failed, trying PAT if available..."
+                
+                # Alternative 2: Use PAT if available
+                if [ -n "${{ secrets.PAT }}" ]; then
+                  git remote set-url origin https://${{ github.actor }}:${{ secrets.PAT }}@github.com/${{ github.repository }}.git
+                  git push
+                else
+                  echo "No PAT available and other methods failed. Push unsuccessful."
+                  exit 1
+                fi
+              fi
+            fi
+            
             echo "Changes committed and pushed"
           fi

@@ -23,13 +23,29 @@ jobs:
         run: |
           git clone --depth 1 https://gitlab.com/mcalec-dev/mcalec.dev temp-gitlab-repo
 
-      - name: Copy public folder contents to root
+      - name: Debug repository structure
         run: |
+          echo "Listing the content of the GitLab repository:"
+          ls -la temp-gitlab-repo/
+          echo "Searching for 'public' directory in any location:"
+          find temp-gitlab-repo -type d -name "public" | xargs -I{} echo "Found public dir: {}"
+
+      - name: Copy folder contents to root
+        run: |
+          # Check if public directory exists
+          if [ -d "temp-gitlab-repo/public" ]; then
+            echo "Found public directory, copying its contents"
+            SOURCE_DIR="temp-gitlab-repo/public"
+          else
+            echo "Public directory not found, copying from root of the repository"
+            SOURCE_DIR="temp-gitlab-repo"
+          fi
+          
           # Remove everything except .git folder and GitHub workflow files
           find . -mindepth 1 -not -path "./.git*" -delete
           
-          # Copy the public folder contents from GitLab repo to the root
-          cp -R temp-gitlab-repo/public/* .
+          # Copy contents from the source directory to the root
+          cp -R ${SOURCE_DIR}/* .
           
           # Clean up the temporary GitLab repository
           rm -rf temp-gitlab-repo

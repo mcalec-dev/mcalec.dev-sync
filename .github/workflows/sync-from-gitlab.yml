@@ -34,18 +34,29 @@ jobs:
         run: |
           # Check if public directory exists
           if [ -d "temp-gitlab-repo/public" ]; then
-            echo "Found public directory, copying its contents"
+            echo "Found public directory"
             SOURCE_DIR="temp-gitlab-repo/public"
           else
-            echo "Public directory not found, copying from root of the repository"
+            echo "Public directory not found, using repository root"
             SOURCE_DIR="temp-gitlab-repo"
           fi
           
           # Remove everything except .git folder and GitHub workflow files
           find . -mindepth 1 -not -path "./.git*" -delete
           
-          # Copy contents from the source directory to the root
-          cp -R ${SOURCE_DIR}/* .
+          # Check if the source directory has any files
+          if [ "$(ls -A ${SOURCE_DIR})" ]; then
+            echo "Copying contents from ${SOURCE_DIR}"
+            cp -R ${SOURCE_DIR}/* .
+          else
+            echo "Source directory is empty, nothing to copy"
+            # Create a placeholder file to show the sync ran
+            echo "Synced from GitLab at $(date)" > README.md
+          fi
+          
+          # Add more detailed debugging
+          echo "Contents of source directory:"
+          ls -la ${SOURCE_DIR}
           
           # Clean up the temporary GitLab repository
           rm -rf temp-gitlab-repo

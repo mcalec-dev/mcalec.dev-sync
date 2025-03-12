@@ -21,44 +21,87 @@ jobs:
 
       - name: Clone GitLab repository
         run: |
-          git clone --depth 1 https://gitlab.com/mcalec-dev/mcalec.dev.git temp-gitlab-repo
+          echo "Attempting to clone GitLab repository..."
+          # Use -v for verbose output to help diagnose issues
+          git clone -v --depth 1 https://gitlab.com/mcalec-dev/mcalec.dev.git temp-gitlab-repo
+          
+          # Check if clone was successful
+          if [ ! -d "temp-gitlab-repo" ]; then
+            echo "ERROR: GitLab repository cloning failed!"
+            echo "Trying alternative URL format..."
+            git clone -v --depth 1 https://gitlab.com/mcalec-dev/mcalec.dev temp-gitlab-repo-alt
+            
+            if [ -d "temp-gitlab-repo-alt" ]; then
+              echo "Alternative URL worked, renaming directory"
+              mv temp-gitlab-repo-alt temp-gitlab-repo
+            else
+              echo "Both clone attempts failed. Exiting."
+              exit 1
+            fi
+          fi
+          
+          echo "Repository cloned successfully"
+          ls -la temp-gitlab-repo/
 
       - name: Debug repository structure
         run: |
+          if [ ! -d "temp-gitlab-repo" ]; then
+            echo "ERROR: temp-gitlab-repo directory not found after clone step"
+            ls -la
+            exit 1
+          fi
+          
           echo "Listing the root content of the GitLab repository:"
           ls -la temp-gitlab-repo/
           
-          # Find any public directories in the repository structure
+          echo "Full directory structure of the cloned repository:"
+          find temp-gitlab-repo -type d | sort
+          
           echo "Searching for 'public' directory in any location:"
-          find temp-gitlab-repo -type d -name "public" | xargs -I{} ls -la "{}"
+          find temp-gitlab-repo -type d -name "public" | tee public-dirs.txt
 
-      - name: Copy folder contents to root
+      - name: Prepare GitHub repository
         run: |
           # Remove everything except .git folder and GitHub workflow files
-          find . -mindepth 1 -not -path "./.git*" -delete
+          echo "Cleaning GitHub repository..."
+          find . -mindepth 1 -not -path "./.git*" -not -path "./temp-gitlab-repo*" -not -path "./public-dirs.txt" -delete
+          echo "Repository cleaned"
+
+      - name: Copy files to GitHub repository
+        run: |
+          if [ ! -d "temp-gitlab-repo" ]; then
+            echo "ERROR: temp-gitlab-repo directory not found"
+            ls -la
+            exit 1
+          fi
           
-          # Look for public directories at any level in the repo structure
-          PUBLIC_DIRS=$(find temp-gitlab-repo -type d -name "public")
-          
-          if [ -n "$PUBLIC_DIRS" ]; then
+          # Check if we found any public directories
+          if [ -s "public-dirs.txt" ]; then
             # Use the first public directory found
-            PUBLIC_DIR=$(echo "$PUBLIC_DIRS" | head -n 1)
+            PUBLIC_DIR=$(head -n 1 public-dirs.txt)
             echo "Found public directory at: $PUBLIC_DIR"
             
-            if [ -n "$(ls -A $PUBLIC_DIR)" ]; then
+            if [ -d "$PUBLIC_DIR" ] && [ -n "$(ls -A $PUBLIC_DIR 2>/dev/null)" ]; then
               echo "Copying files from $PUBLIC_DIR"
-              cp -R $PUBLIC_DIR/* .
+              cp -R "$PUBLIC_DIR"/* .
+              echo "Files copied successfully"
             else
-              echo "Public directory is empty, nothing to copy"
+              echo "Public directory is empty or not accessible"
               echo "Synced from GitLab at $(date)" > README.md
             fi
           else
             echo "No public directory found, copying from repository root"
             cp -R temp-gitlab-repo/* .
+            echo "Files copied from repository root"
           fi
           
-          # Clean up the temporary GitLab repository
-          rm -rf temp-gitlab-repo
+          echo "Final content of GitHub repository:"
+          ls -la
+
+      - name: Clean up
+        run: |
+          rm -rf temp-gitlab-repo public-dirs.txt
+          echo "Temporary files cleaned up"
 
       - name: Commit and push changes
         run: |
@@ -68,6 +111,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Sync files from GitLab public folder"
+            git commit -m "Sync files from GitLab repository"
             git push
+            echo "Changes committed and pushed"
           fi

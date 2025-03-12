@@ -112,6 +112,10 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Sync files from GitLab repository"
+            
+            # Use PAT instead of default GITHUB_TOKEN for push
+            # This requires setting up a secret called PAT in your repository
+            git remote set-url origin https://${{ github.actor }}:${{ secrets.PAT }}@github.com/${{ github.repository }}.git
             git push
             echo "Changes committed and pushed"
           fi

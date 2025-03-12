@@ -1,0 +1,1 @@
+const navbar=document.getElementById("navbar");window.addEventListener("scroll",()=>{window.scrollY>2?(navbar.classList.remove("transparent"),navbar.classList.add("scrolled")):(navbar.classList.add("transparent"),navbar.classList.remove("scrolled"))});

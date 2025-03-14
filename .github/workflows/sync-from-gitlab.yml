@@ -3,6 +3,7 @@ name: Sync from GitLab
 # Explicitly define permissions for GITHUB_TOKEN
 permissions:
   contents: write
+  pages: write  # Add pages write permission
 
 on:
   # Run this workflow every day at midnight
@@ -87,7 +88,7 @@ jobs:
             
             if [ -d "$PUBLIC_DIR" ] && [ -n "$(ls -A $PUBLIC_DIR 2>/dev/null)" ]; then
               echo "Copying files from $PUBLIC_DIR"
-              cp -R "$PUBLIC_DIR"/* .
+              cp -R "$PUBLIC_DIR"/* .  # Copy files to the root of the repository
               echo "Files copied successfully"
             else
               echo "Public directory is empty or not accessible"
@@ -95,7 +96,7 @@ jobs:
             fi
           else
             echo "No public directory found, copying from repository root"
-            cp -R temp-gitlab-repo/* .
+            cp -R temp-gitlab-repo/* .  # Copy files to the root of the repository
             echo "Files copied from repository root"
           fi
           
